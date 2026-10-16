@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Arena 60 — protótipo de arena 2D feito com Phaser e TypeScript." />
+    <title>Arena 60</title>
+  </head>
+  <body>
+    <main>
+      <h1>Arena 60</h1>
+      <p>Use as setas do teclado para movimentar o personagem.</p>
+      <div id="game-shell" data-testid="game-shell" data-game-status="waiting">
+        <div id="game" aria-label="Arena do jogo"></div>
+
+        <header class="game-hud" aria-label="Informações da partida">
+          <output id="lives" data-testid="lives">Vidas: ♥♥♥</output>
+          <output id="score" data-testid="score">Pontos: 0</output>
+          <output id="timer" data-testid="timer">Tempo: 60s</output>
+          <button id="menu-button" data-testid="menu-button" type="button">Menu</button>
+        </header>
+
+        <section id="game-menu" class="menu-overlay" data-testid="game-menu" aria-label="Menu do jogo">
+          <div class="menu-panel">
+            <h2 id="menu-title" data-testid="menu-title">Arena 60</h2>
+
+            <fieldset>
+              <legend>Dificuldade</legend>
+              <div class="difficulty-options">
+                <button type="button" data-testid="difficulty-1" data-difficulty="1">1</button>
+                <button type="button" data-testid="difficulty-2" data-difficulty="2">2</button>
+                <button type="button" data-testid="difficulty-3" data-difficulty="3">3</button>
+                <button type="button" data-testid="difficulty-4" data-difficulty="4">4</button>
+              </div>
+            </fieldset>
+
+            <div class="menu-actions">
+              <button id="start-button" data-testid="start-button" type="button">Iniciar</button>
+              <button id="restart-button" data-testid="restart-button" type="button">Reiniciar</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

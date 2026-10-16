@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "outDir": ".cucumber-dist",
+    "rootDir": ".",
+    "rewriteRelativeImportExtensions": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/GameSession.ts",
+    "src/gameRules.ts",
+    "src/movement.ts",
+    "tests/features/step-definitions/**/*.ts"
+  ]
+}

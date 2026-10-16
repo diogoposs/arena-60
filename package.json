@@ -1,0 +1,30 @@
+{
+  "name": "arena-60",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:bdd": "tsc -p tsconfig.cucumber.json && cucumber-js --config cucumber.mjs",
+    "test:bdd:report": "tsc -p tsconfig.cucumber.json && cucumber-js --config cucumber.mjs --format html:reports/cucumber-report.html",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "test:all": "npm run test && npm run test:bdd && npm run test:e2e"
+  },
+  "dependencies": {
+    "phaser": "4.2.1"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^13.3.0",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.5",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vite/
+.cucumber-dist/
+reports/*
+!reports/.gitkeep
+playwright-report/
+test-results/
+*.log

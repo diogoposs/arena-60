@@ -1,0 +1,11 @@
+{
+  "cucumber.features": [
+    "tests/features/**/*.feature"
+  ],
+  "cucumber.glue": [
+    "tests/features/step-definitions/**/*.ts"
+  ],
+  "files.exclude": {
+    ".cucumber-dist": true
+  }
+}
