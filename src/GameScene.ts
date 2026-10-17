@@ -4,6 +4,13 @@ import { createEnemyPath, getSpawnInterval } from './enemy.ts';
 import { GameSession } from './GameSession.ts';
 import { circlesOverlap, getDifficultySettings, type Difficulty } from './gameRules.ts';
 import { calculateNextPosition, type Direction } from './movement.ts';
+import {
+  createInviteUrl,
+  getMatchResult,
+  getRoomIdFromUrl,
+  MultiplayerClient,
+  type PlayerState,
+} from './multiplayer.ts';
 
 const ARENA_WIDTH = 800;
 const ARENA_HEIGHT = 500;
@@ -56,6 +63,16 @@ export class GameScene extends Phaser.Scene {
   private menuTitleElement!: HTMLHeadingElement;
   private startButton!: HTMLButtonElement;
   private difficultyButtons = new Map<Difficulty, HTMLButtonElement>();
+  private multiplayer!: MultiplayerClient;
+  private multiplayerStatusElement!: HTMLElement;
+  private opponentScoreElement!: HTMLOutputElement;
+  private createRoomButton!: HTMLButtonElement;
+  private copyInviteButton!: HTMLButtonElement;
+  private leaveRoomButton!: HTMLButtonElement;
+  private inviteLabel!: HTMLElement;
+  private inviteLinkInput!: HTMLInputElement;
+  private opponentState?: PlayerState;
+  private multiplayerUpdateMilliseconds = 0;
 
   constructor() {
     super('arena');
@@ -85,6 +102,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.cursors = keyboard.createCursorKeys();
+    this.connectFromInviteLink();
   }
 
   update(_time: number, deltaMilliseconds: number): void {
@@ -94,6 +112,11 @@ export class GameScene extends Phaser.Scene {
 
     this.session.elapse(deltaMilliseconds);
     this.updateInterface();
+    this.multiplayerUpdateMilliseconds -= deltaMilliseconds;
+    if (this.multiplayerUpdateMilliseconds <= 0) {
+      this.sendMultiplayerState(false);
+      this.multiplayerUpdateMilliseconds = 200;
+    }
 
     if (this.session.hasWon) {
       this.finishGame('won');
@@ -154,12 +177,30 @@ export class GameScene extends Phaser.Scene {
     this.menuElement = requiredElement('#game-menu');
     this.menuTitleElement = requiredElement('#menu-title');
     this.startButton = requiredElement('#start-button');
+    this.multiplayerStatusElement = requiredElement('#multiplayer-status');
+    this.opponentScoreElement = requiredElement('#opponent-score');
+    this.createRoomButton = requiredElement('#create-room-button');
+    this.copyInviteButton = requiredElement('#copy-invite-button');
+    this.leaveRoomButton = requiredElement('#leave-room-button');
+    this.inviteLabel = requiredElement('#invite-label');
+    this.inviteLinkInput = requiredElement('#invite-link');
+
+    this.multiplayer = new MultiplayerClient({
+      onConnected: (role) => this.handleMultiplayerConnected(role),
+      onDisconnected: () => this.handleMultiplayerDisconnected(),
+      onStart: (difficulty) => this.handleRemoteStart(difficulty),
+      onState: (state) => this.handleOpponentState(state),
+      onError: (message) => this.showMultiplayerError(message),
+    });
 
     requiredElement<HTMLButtonElement>('#menu-button')
       .addEventListener('click', () => this.openMenu());
     this.startButton.addEventListener('click', () => this.handleStart());
     requiredElement<HTMLButtonElement>('#restart-button')
-      .addEventListener('click', () => this.startNewGame());
+      .addEventListener('click', () => this.handleRestart());
+    this.createRoomButton.addEventListener('click', () => void this.createMultiplayerRoom());
+    this.copyInviteButton.addEventListener('click', () => void this.copyInviteLink());
+    this.leaveRoomButton.addEventListener('click', () => this.leaveMultiplayerRoom());
 
     const buttons = document.querySelectorAll<HTMLButtonElement>('[data-difficulty]');
     for (const button of buttons) {
@@ -174,6 +215,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private openMenu(): void {
+    if (this.status === 'running' && this.multiplayer.connected) {
+      return;
+    }
+
     if (this.status === 'running') {
       this.status = 'paused';
     }
@@ -192,7 +237,27 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.multiplayer.connected && this.multiplayer.role === 'guest') {
+      this.multiplayerStatusElement.textContent = 'Aguardando o anfitrião iniciar a partida…';
+      return;
+    }
+
     this.startNewGame();
+    if (this.multiplayer.connected) {
+      this.multiplayer.sendStart(this.difficulty);
+    }
+  }
+
+  private handleRestart(): void {
+    if (this.multiplayer.connected && this.multiplayer.role === 'guest') {
+      this.multiplayerStatusElement.textContent = 'Somente o anfitrião pode reiniciar o duelo.';
+      return;
+    }
+
+    this.startNewGame();
+    if (this.multiplayer.connected) {
+      this.multiplayer.sendStart(this.difficulty);
+    }
   }
 
   private startNewGame(): void {
@@ -210,6 +275,8 @@ export class GameScene extends Phaser.Scene {
     this.timeUntilNextEnemy = 0;
     this.timeUntilNextCoin = 0;
     this.invulnerabilityMilliseconds = 0;
+    this.multiplayerUpdateMilliseconds = 0;
+    this.opponentState = undefined;
     this.player.setPosition(ARENA_WIDTH / 2, ARENA_HEIGHT / 2).setAlpha(1);
     this.updateInterface();
   }
@@ -218,10 +285,22 @@ export class GameScene extends Phaser.Scene {
     this.status = result;
     this.clearEnemies();
     this.clearCoins();
+    this.sendMultiplayerState(true);
     this.openMenu();
   }
 
   private getMenuTitle(): string {
+    if ((this.status === 'won' || this.status === 'lost') && this.multiplayer.connected) {
+      if (!this.opponentState?.finished) {
+        return 'Aguardando adversário…';
+      }
+
+      const result = getMatchResult(this.session.score, this.opponentState.score);
+      if (result === 'win') return 'Você venceu o duelo!';
+      if (result === 'loss') return 'O adversário venceu!';
+      return 'Duelo empatado!';
+    }
+
     if (this.status === 'won') {
       return 'Você sobreviveu!';
     }
@@ -235,6 +314,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private selectDifficulty(difficulty: Difficulty): void {
+    if (this.multiplayer.connected && this.multiplayer.role === 'guest') {
+      this.multiplayerStatusElement.textContent = 'A dificuldade é escolhida pelo anfitrião.';
+      return;
+    }
     if (difficulty === this.difficulty) {
       return;
     }
@@ -253,6 +336,128 @@ export class GameScene extends Phaser.Scene {
     for (const [level, button] of this.difficultyButtons) {
       button.setAttribute('aria-pressed', String(level === this.difficulty));
     }
+  }
+
+  private connectFromInviteLink(): void {
+    const roomId = getRoomIdFromUrl(new URL(window.location.href));
+    if (!roomId) {
+      return;
+    }
+
+    this.createRoomButton.hidden = true;
+    this.leaveRoomButton.hidden = false;
+    this.startButton.disabled = true;
+    this.startButton.textContent = 'Aguardando';
+    this.multiplayerStatusElement.textContent = 'Entrando na sala…';
+    void this.multiplayer.joinRoom(roomId)
+      .catch((error: unknown) => this.showMultiplayerError(
+        error instanceof Error ? error.message : 'Não foi possível carregar o multiplayer.',
+      ));
+  }
+
+  private async createMultiplayerRoom(): Promise<void> {
+    this.createRoomButton.disabled = true;
+    this.multiplayerStatusElement.textContent = 'Criando sala…';
+
+    try {
+      const roomId = await this.multiplayer.createRoom();
+      const inviteUrl = createInviteUrl(new URL(window.location.href), roomId);
+      this.inviteLinkInput.value = inviteUrl;
+      this.inviteLabel.hidden = false;
+      this.copyInviteButton.hidden = false;
+      this.leaveRoomButton.hidden = false;
+      this.createRoomButton.hidden = true;
+      this.startButton.disabled = true;
+      this.multiplayerStatusElement.textContent = 'Sala criada. Envie o link e aguarde o adversário.';
+    } catch {
+      this.createRoomButton.disabled = false;
+    }
+  }
+
+  private async copyInviteLink(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.inviteLinkInput.value);
+      this.multiplayerStatusElement.textContent = 'Convite copiado! Envie o link ao segundo jogador.';
+    } catch {
+      this.inviteLinkInput.select();
+      this.multiplayerStatusElement.textContent = 'Selecione e copie o link exibido abaixo.';
+    }
+  }
+
+  private leaveMultiplayerRoom(): void {
+    this.multiplayer.destroy();
+    this.opponentState = undefined;
+    this.opponentScoreElement.hidden = true;
+    this.inviteLabel.hidden = true;
+    this.copyInviteButton.hidden = true;
+    this.leaveRoomButton.hidden = true;
+    this.createRoomButton.hidden = false;
+    this.createRoomButton.disabled = false;
+    this.startButton.disabled = false;
+    this.startButton.textContent = this.status === 'paused' ? 'Continuar' : 'Iniciar';
+    this.multiplayerStatusElement.textContent = 'Modo solo. Crie uma sala para desafiar alguém.';
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
+  private handleMultiplayerConnected(role: 'host' | 'guest'): void {
+    this.opponentScoreElement.hidden = false;
+    this.leaveRoomButton.hidden = false;
+    this.startButton.disabled = role === 'guest';
+    this.startButton.textContent = role === 'host' ? 'Iniciar duelo' : 'Aguardando';
+    this.multiplayerStatusElement.textContent = role === 'host'
+      ? 'Adversário conectado. Você pode iniciar o duelo!'
+      : 'Conectado! Aguarde o anfitrião iniciar o duelo.';
+    this.updateInterface();
+  }
+
+  private handleMultiplayerDisconnected(): void {
+    this.opponentState = undefined;
+    this.opponentScoreElement.textContent = 'Adversário: desconectado';
+    this.multiplayerStatusElement.textContent = 'O adversário saiu da sala.';
+    this.startButton.disabled = false;
+  }
+
+  private handleRemoteStart(difficulty: Difficulty): void {
+    this.difficulty = difficulty;
+    this.updateDifficultyButtons();
+    this.startNewGame();
+    this.multiplayerStatusElement.textContent = 'Duelo em andamento!';
+  }
+
+  private handleOpponentState(state: PlayerState): void {
+    this.opponentState = state;
+    this.opponentScoreElement.textContent = `Adversário: ${state.score} | Vidas: ${state.lives}`;
+    this.updateMatchResultIfReady();
+  }
+
+  private updateMatchResultIfReady(): void {
+    const localFinished = this.status === 'won' || this.status === 'lost';
+    if (!localFinished || !this.opponentState?.finished) {
+      return;
+    }
+
+    this.menuTitleElement.textContent = this.getMenuTitle();
+    this.multiplayerStatusElement.textContent =
+      `Placar final: você ${this.session.score} × ${this.opponentState.score} adversário`;
+  }
+
+  private sendMultiplayerState(finished: boolean): void {
+    if (!this.multiplayer.connected) {
+      return;
+    }
+
+    this.multiplayer.sendState({
+      score: this.session.score,
+      lives: this.session.lives,
+      remainingSeconds: this.session.remainingSeconds,
+      finished,
+    });
+  }
+
+  private showMultiplayerError(message: string): void {
+    this.multiplayerStatusElement.textContent = `Erro de conexão: ${message}`;
+    this.createRoomButton.disabled = false;
+    this.startButton.disabled = false;
   }
 
   private spawnEnemy(): void {
@@ -365,6 +570,9 @@ export class GameScene extends Phaser.Scene {
     this.shellElement.dataset.lives = String(this.session.lives);
     this.shellElement.dataset.score = String(this.session.score);
     this.shellElement.dataset.remainingSeconds = String(this.session.remainingSeconds);
+    this.shellElement.dataset.multiplayerConnected = String(this.multiplayer?.connected ?? false);
+    this.shellElement.dataset.multiplayerRole = this.multiplayer?.role ?? 'solo';
+    this.shellElement.dataset.opponentScore = String(this.opponentState?.score ?? 0);
   }
 
   private clearEnemies(): void {

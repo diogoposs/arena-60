@@ -17,6 +17,7 @@
           <output id="lives" data-testid="lives">Vidas: ♥♥♥</output>
           <output id="score" data-testid="score">Pontos: 0</output>
           <output id="timer" data-testid="timer">Tempo: 60s</output>
+          <output id="opponent-score" data-testid="opponent-score" hidden>Adversário: 0</output>
           <button id="menu-button" data-testid="menu-button" type="button">Menu</button>
         </header>
 
@@ -33,6 +34,20 @@
                 <button type="button" data-testid="difficulty-4" data-difficulty="4">4</button>
               </div>
             </fieldset>
+
+            <section class="multiplayer-panel" aria-labelledby="multiplayer-title">
+              <h3 id="multiplayer-title">Multiplayer</h3>
+              <p id="multiplayer-status" data-testid="multiplayer-status" aria-live="polite">Jogue sozinho ou crie uma sala para desafiar alguém.</p>
+              <div class="multiplayer-actions">
+                <button id="create-room-button" data-testid="create-room-button" type="button">Criar sala</button>
+                <button id="copy-invite-button" data-testid="copy-invite-button" type="button" hidden>Copiar convite</button>
+                <button id="leave-room-button" data-testid="leave-room-button" type="button" hidden>Sair da sala</button>
+              </div>
+              <label id="invite-label" class="invite-label" hidden>
+                Link do convite
+                <input id="invite-link" data-testid="invite-link" type="text" readonly />
+              </label>
+            </section>
 
             <div class="menu-actions">
               <button id="start-button" data-testid="start-button" type="button">Iniciar</button>
