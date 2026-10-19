@@ -8,6 +8,7 @@ import {
   createInviteUrl,
   getMatchResult,
   getRoomIdFromUrl,
+  isStateForRound,
   MultiplayerClient,
   type PlayerState,
 } from './multiplayer.ts';
@@ -73,6 +74,9 @@ export class GameScene extends Phaser.Scene {
   private inviteLinkInput!: HTMLInputElement;
   private opponentState?: PlayerState;
   private multiplayerUpdateMilliseconds = 0;
+  private currentRoundId?: string;
+  private opponentViewElement!: HTMLElement;
+  private opponentCanvas!: HTMLCanvasElement;
 
   constructor() {
     super('arena');
@@ -184,11 +188,13 @@ export class GameScene extends Phaser.Scene {
     this.leaveRoomButton = requiredElement('#leave-room-button');
     this.inviteLabel = requiredElement('#invite-label');
     this.inviteLinkInput = requiredElement('#invite-link');
+    this.opponentViewElement = requiredElement('#opponent-view');
+    this.opponentCanvas = requiredElement('#opponent-canvas');
 
     this.multiplayer = new MultiplayerClient({
       onConnected: (role) => this.handleMultiplayerConnected(role),
       onDisconnected: () => this.handleMultiplayerDisconnected(),
-      onStart: (difficulty) => this.handleRemoteStart(difficulty),
+      onStart: (difficulty, roundId) => this.handleRemoteStart(difficulty, roundId),
       onState: (state) => this.handleOpponentState(state),
       onError: (message) => this.showMultiplayerError(message),
     });
@@ -242,10 +248,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.startNewGame();
-    if (this.multiplayer.connected) {
-      this.multiplayer.sendStart(this.difficulty);
-    }
+    this.startHostedOrSoloGame();
   }
 
   private handleRestart(): void {
@@ -254,10 +257,20 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.startNewGame();
-    if (this.multiplayer.connected) {
-      this.multiplayer.sendStart(this.difficulty);
+    this.startHostedOrSoloGame();
+  }
+
+  private startHostedOrSoloGame(): void {
+    if (!this.multiplayer.connected) {
+      this.currentRoundId = undefined;
+      this.startNewGame();
+      return;
     }
+
+    const roundId = `round-${crypto.randomUUID()}`;
+    this.currentRoundId = roundId;
+    this.startNewGame();
+    this.multiplayer.sendStart(this.difficulty, roundId);
   }
 
   private startNewGame(): void {
@@ -277,6 +290,8 @@ export class GameScene extends Phaser.Scene {
     this.invulnerabilityMilliseconds = 0;
     this.multiplayerUpdateMilliseconds = 0;
     this.opponentState = undefined;
+    this.clearOpponentView();
+    this.opponentScoreElement.textContent = 'Adversário: 0 | Vidas: 3';
     this.player.setPosition(ARENA_WIDTH / 2, ARENA_HEIGHT / 2).setAlpha(1);
     this.updateInterface();
   }
@@ -324,6 +339,7 @@ export class GameScene extends Phaser.Scene {
 
     this.difficulty = difficulty;
     this.updateDifficultyButtons();
+    this.currentRoundId = undefined;
     this.resetGameState();
     this.status = 'waiting';
     this.startButton.textContent = 'Iniciar';
@@ -387,7 +403,10 @@ export class GameScene extends Phaser.Scene {
   private leaveMultiplayerRoom(): void {
     this.multiplayer.destroy();
     this.opponentState = undefined;
+    this.currentRoundId = undefined;
     this.opponentScoreElement.hidden = true;
+    this.opponentViewElement.hidden = true;
+    this.clearOpponentView();
     this.inviteLabel.hidden = true;
     this.copyInviteButton.hidden = true;
     this.leaveRoomButton.hidden = true;
@@ -401,6 +420,7 @@ export class GameScene extends Phaser.Scene {
 
   private handleMultiplayerConnected(role: 'host' | 'guest'): void {
     this.opponentScoreElement.hidden = false;
+    this.opponentViewElement.hidden = false;
     this.leaveRoomButton.hidden = false;
     this.startButton.disabled = role === 'guest';
     this.startButton.textContent = role === 'host' ? 'Iniciar duelo' : 'Aguardando';
@@ -412,12 +432,15 @@ export class GameScene extends Phaser.Scene {
 
   private handleMultiplayerDisconnected(): void {
     this.opponentState = undefined;
+    this.currentRoundId = undefined;
     this.opponentScoreElement.textContent = 'Adversário: desconectado';
+    this.clearOpponentView();
     this.multiplayerStatusElement.textContent = 'O adversário saiu da sala.';
     this.startButton.disabled = false;
   }
 
-  private handleRemoteStart(difficulty: Difficulty): void {
+  private handleRemoteStart(difficulty: Difficulty, roundId: string): void {
+    this.currentRoundId = roundId;
     this.difficulty = difficulty;
     this.updateDifficultyButtons();
     this.startNewGame();
@@ -425,8 +448,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleOpponentState(state: PlayerState): void {
+    if (!isStateForRound(this.currentRoundId, state)) {
+      return;
+    }
+
     this.opponentState = state;
     this.opponentScoreElement.textContent = `Adversário: ${state.score} | Vidas: ${state.lives}`;
+    this.drawOpponentView(state);
     this.updateMatchResultIfReady();
   }
 
@@ -442,16 +470,75 @@ export class GameScene extends Phaser.Scene {
   }
 
   private sendMultiplayerState(finished: boolean): void {
-    if (!this.multiplayer.connected) {
+    if (!this.multiplayer.connected || !this.currentRoundId) {
       return;
     }
 
     this.multiplayer.sendState({
+      roundId: this.currentRoundId,
       score: this.session.score,
       lives: this.session.lives,
       remainingSeconds: this.session.remainingSeconds,
       finished,
+      player: { x: this.player.x, y: this.player.y },
+      enemies: this.enemies.map((enemy) => ({
+        x: enemy.shape.x,
+        y: enemy.shape.y,
+        radius: enemy.radius,
+      })),
+      coins: this.coins.map((coin) => ({
+        x: coin.shape.x,
+        y: coin.shape.y,
+        radius: coin.radius,
+      })),
     });
+  }
+
+  private drawOpponentView(state: PlayerState): void {
+    const context = this.opponentCanvas.getContext('2d');
+    if (!context) return;
+
+    const scaleX = this.opponentCanvas.width / ARENA_WIDTH;
+    const scaleY = this.opponentCanvas.height / ARENA_HEIGHT;
+    context.clearRect(0, 0, this.opponentCanvas.width, this.opponentCanvas.height);
+    context.fillStyle = '#101827';
+    context.fillRect(0, 0, this.opponentCanvas.width, this.opponentCanvas.height);
+
+    for (const coin of state.coins) {
+      this.drawOpponentCircle(context, coin.x, coin.y, coin.radius, scaleX, scaleY, '#facc15');
+    }
+    for (const enemy of state.enemies) {
+      this.drawOpponentCircle(context, enemy.x, enemy.y, enemy.radius, scaleX, scaleY, '#ef4444');
+    }
+    this.drawOpponentCircle(
+      context,
+      state.player.x,
+      state.player.y,
+      PLAYER_RADIUS,
+      scaleX,
+      scaleY,
+      '#22d3ee',
+    );
+  }
+
+  private drawOpponentCircle(
+    context: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number,
+    scaleX: number,
+    scaleY: number,
+    color: string,
+  ): void {
+    context.beginPath();
+    context.arc(x * scaleX, y * scaleY, radius * Math.min(scaleX, scaleY), 0, Math.PI * 2);
+    context.fillStyle = color;
+    context.fill();
+  }
+
+  private clearOpponentView(): void {
+    const context = this.opponentCanvas?.getContext('2d');
+    context?.clearRect(0, 0, this.opponentCanvas.width, this.opponentCanvas.height);
   }
 
   private showMultiplayerError(message: string): void {
@@ -573,6 +660,8 @@ export class GameScene extends Phaser.Scene {
     this.shellElement.dataset.multiplayerConnected = String(this.multiplayer?.connected ?? false);
     this.shellElement.dataset.multiplayerRole = this.multiplayer?.role ?? 'solo';
     this.shellElement.dataset.opponentScore = String(this.opponentState?.score ?? 0);
+    this.shellElement.dataset.roundId = this.currentRoundId ?? '';
+    this.shellElement.dataset.opponentRoundId = this.opponentState?.roundId ?? '';
   }
 
   private clearEnemies(): void {

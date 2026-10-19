@@ -3,21 +3,31 @@ import type { DataConnection } from 'peerjs';
 import type { Difficulty } from './gameRules.ts';
 
 export type MultiplayerRole = 'host' | 'guest';
+export type ArenaObjectState = Readonly<{
+  x: number;
+  y: number;
+  radius: number;
+}>;
+
 export type PlayerState = Readonly<{
+  roundId: string;
   score: number;
   lives: number;
   remainingSeconds: number;
   finished: boolean;
+  player: Readonly<{ x: number; y: number }>;
+  enemies: readonly ArenaObjectState[];
+  coins: readonly ArenaObjectState[];
 }>;
 
 type MultiplayerMessage =
-  | { type: 'start'; difficulty: Difficulty }
+  | { type: 'start'; difficulty: Difficulty; roundId: string }
   | { type: 'state'; state: PlayerState };
 
 type MultiplayerCallbacks = Readonly<{
   onConnected: (role: MultiplayerRole) => void;
   onDisconnected: () => void;
-  onStart: (difficulty: Difficulty) => void;
+  onStart: (difficulty: Difficulty, roundId: string) => void;
   onState: (state: PlayerState) => void;
   onError: (message: string) => void;
 }>;
@@ -79,8 +89,8 @@ export class MultiplayerClient {
     this.peer.on('error', (error) => this.callbacks.onError(this.describeError(error)));
   }
 
-  sendStart(difficulty: Difficulty): void {
-    this.send({ type: 'start', difficulty });
+  sendStart(difficulty: Difficulty, roundId: string): void {
+    this.send({ type: 'start', difficulty, roundId });
   }
 
   sendState(state: PlayerState): void {
@@ -110,7 +120,7 @@ export class MultiplayerClient {
 
     const message = data as MultiplayerMessage;
     if (message.type === 'start') {
-      this.callbacks.onStart(message.difficulty);
+      this.callbacks.onStart(message.difficulty, message.roundId);
     } else if (message.type === 'state') {
       this.callbacks.onState(message.state);
     }
@@ -143,4 +153,9 @@ export function createInviteUrl(currentUrl: URL, roomId: string): string {
 export function getMatchResult(localScore: number, opponentScore: number): 'win' | 'loss' | 'draw' {
   if (localScore === opponentScore) return 'draw';
   return localScore > opponentScore ? 'win' : 'loss';
+}
+
+/** Impede que um pacote atrasado de uma partida anterior altere o placar atual. */
+export function isStateForRound(currentRoundId: string | undefined, state: PlayerState): boolean {
+  return currentRoundId !== undefined && state.roundId === currentRoundId;
 }

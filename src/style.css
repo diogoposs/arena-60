@@ -106,6 +106,40 @@ button:focus-visible {
   pointer-events: auto;
 }
 
+.opponent-view {
+  position: absolute;
+  z-index: 12;
+  right: 14px;
+  bottom: 14px;
+  width: min(32%, 260px);
+  overflow: hidden;
+  border: 2px solid #a78bfa;
+  border-radius: 9px;
+  background: #020617;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 55%);
+  pointer-events: none;
+}
+
+.opponent-view[hidden] {
+  display: none;
+}
+
+.opponent-view strong {
+  display: block;
+  padding: 5px 8px;
+  color: #ddd6fe;
+  background: #4c1d95;
+  font-size: clamp(0.55rem, 1.6vw, 0.8rem);
+  text-align: left;
+  text-transform: uppercase;
+}
+
+#opponent-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 8 / 5;
+}
+
 .menu-overlay {
   position: absolute;
   z-index: 20;
@@ -238,6 +272,12 @@ legend {
 
   #menu-button {
     padding: 5px 8px;
+  }
+
+  .opponent-view {
+    right: 8px;
+    bottom: 8px;
+    width: 38%;
   }
 
   .menu-overlay {

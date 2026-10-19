@@ -22,6 +22,26 @@ test('conecta dois jogadores por um link de convite', async ({ browser }) => {
     await host.getByTestId('start-button').click();
     await expect(host.getByTestId('game-shell')).toHaveAttribute('data-game-status', 'running');
     await expect(guest.getByTestId('game-shell')).toHaveAttribute('data-game-status', 'running');
+    await expect(host.getByTestId('opponent-view')).toBeVisible();
+    await expect(guest.getByTestId('opponent-view')).toBeVisible();
+
+    const hostRoundId = await host.getByTestId('game-shell').getAttribute('data-round-id');
+    await expect(guest.getByTestId('game-shell')).toHaveAttribute('data-round-id', hostRoundId ?? '');
+    await expect(host.getByTestId('game-shell')).toHaveAttribute('data-opponent-round-id', hostRoundId ?? '', {
+      timeout: 5_000,
+    });
+
+    await expect.poll(async () => host.getByTestId('opponent-canvas').evaluate((canvas) => {
+      const context = (canvas as HTMLCanvasElement).getContext('2d');
+      if (!context) return false;
+      const pixels = context.getImageData(0, 0, context.canvas.width, context.canvas.height).data;
+      for (let index = 0; index < pixels.length; index += 4) {
+        if (pixels[index] < 100 && pixels[index + 1] > 150 && pixels[index + 2] > 150) {
+          return true;
+        }
+      }
+      return false;
+    })).toBe(true);
   } finally {
     await hostContext.close();
     await guestContext.close();
