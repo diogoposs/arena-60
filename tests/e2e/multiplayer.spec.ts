@@ -25,6 +25,12 @@ test('conecta dois jogadores por um link de convite', async ({ browser }) => {
     await expect(host.getByTestId('opponent-view')).toBeVisible();
     await expect(guest.getByTestId('opponent-view')).toBeVisible();
 
+    const localArena = await host.getByTestId('game-shell').boundingBox();
+    const opponentArena = await host.getByTestId('opponent-view').boundingBox();
+    expect(localArena).not.toBeNull();
+    expect(opponentArena).not.toBeNull();
+    expect(opponentArena!.x).toBeGreaterThanOrEqual(localArena!.x + localArena!.width);
+
     const hostRoundId = await host.getByTestId('game-shell').getAttribute('data-round-id');
     await expect(guest.getByTestId('game-shell')).toHaveAttribute('data-round-id', hostRoundId ?? '');
     await expect(host.getByTestId('game-shell')).toHaveAttribute('data-opponent-round-id', hostRoundId ?? '', {

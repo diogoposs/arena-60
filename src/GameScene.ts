@@ -119,7 +119,7 @@ export class GameScene extends Phaser.Scene {
     this.multiplayerUpdateMilliseconds -= deltaMilliseconds;
     if (this.multiplayerUpdateMilliseconds <= 0) {
       this.sendMultiplayerState(false);
-      this.multiplayerUpdateMilliseconds = 200;
+      this.multiplayerUpdateMilliseconds = 30;
     }
 
     if (this.session.hasWon) {

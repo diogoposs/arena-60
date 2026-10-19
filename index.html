@@ -10,7 +10,8 @@
     <main>
       <h1>Arena 60</h1>
       <p>Use as setas do teclado para movimentar o personagem.</p>
-      <div id="game-shell" data-testid="game-shell" data-game-status="waiting">
+      <div class="game-layout">
+        <div id="game-shell" data-testid="game-shell" data-game-status="waiting">
         <div id="game" aria-label="Arena do jogo"></div>
 
         <header class="game-hud" aria-label="Informações da partida">
@@ -20,11 +21,6 @@
           <output id="opponent-score" data-testid="opponent-score" hidden>Adversário: 0</output>
           <button id="menu-button" data-testid="menu-button" type="button">Menu</button>
         </header>
-
-        <aside id="opponent-view" class="opponent-view" data-testid="opponent-view" hidden>
-          <strong>Tela do adversário</strong>
-          <canvas id="opponent-canvas" data-testid="opponent-canvas" width="320" height="200"></canvas>
-        </aside>
 
         <section id="game-menu" class="menu-overlay" data-testid="game-menu" aria-label="Menu do jogo">
           <div class="menu-panel">
@@ -60,6 +56,12 @@
             </div>
           </div>
         </section>
+        </div>
+
+        <aside id="opponent-view" class="opponent-view" data-testid="opponent-view" hidden>
+          <strong>Tela do adversário</strong>
+          <canvas id="opponent-canvas" data-testid="opponent-canvas" width="800" height="500"></canvas>
+        </aside>
       </div>
     </main>
     <script type="module" src="/src/main.ts"></script>
