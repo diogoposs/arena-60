@@ -25,10 +25,15 @@ main {
 }
 
 .game-layout {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
   align-items: flex-start;
-  justify-content: center;
   gap: 18px;
+}
+
+.game-layout:has(.opponent-view[hidden]) {
+  grid-template-columns: minmax(0, 800px);
+  justify-content: center;
 }
 
 h1 {
@@ -46,9 +51,7 @@ p {
 
 #game-shell {
   position: relative;
-  flex: 1 1 800px;
   width: 100%;
-  max-width: 800px;
   aspect-ratio: 8 / 5;
   margin-inline: auto;
   overflow: hidden;
@@ -116,9 +119,7 @@ button:focus-visible {
 }
 
 .opponent-view {
-  flex: 0 1 400px;
   width: 100%;
-  max-width: 400px;
   overflow: hidden;
   border: 2px solid #a78bfa;
   border-radius: 9px;
@@ -146,19 +147,13 @@ button:focus-visible {
   aspect-ratio: 8 / 5;
 }
 
-@media (max-width: 940px) {
+@media (max-width: 760px) {
   .game-layout {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  #game-shell {
-    flex-basis: auto;
+    grid-template-columns: 1fr;
   }
 
   .opponent-view {
-    flex-basis: auto;
-    max-width: 800px;
+    width: 100%;
   }
 }
 
@@ -170,6 +165,7 @@ button:focus-visible {
   place-items: center;
   padding: 24px;
   background: rgb(2 6 23 / 58%);
+  overflow-y: auto;
 }
 
 .menu-overlay[hidden] {
@@ -178,6 +174,8 @@ button:focus-visible {
 
 .menu-panel {
   width: min(590px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
   padding: clamp(20px, 5vw, 38px);
   border: 3px solid #38bdf8;
   border-radius: 16px;
@@ -279,6 +277,35 @@ legend {
   padding: 8px;
   color: #e2e8f0;
   background: #020617;
+}
+
+@media (max-width: 1040px) and (min-width: 761px) {
+  .menu-overlay {
+    padding: 8px;
+  }
+
+  .menu-panel {
+    padding: 14px;
+  }
+
+  .menu-panel h2 {
+    margin-bottom: 10px;
+    font-size: 1.45rem;
+  }
+
+  .multiplayer-panel {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .multiplayer-panel p {
+    margin-block: 5px 8px;
+    font-size: 0.8rem;
+  }
+
+  .menu-actions {
+    margin-top: 10px;
+  }
 }
 
 @media (max-width: 560px) {

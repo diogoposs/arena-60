@@ -2,8 +2,9 @@ import { expect, test } from '@playwright/test';
 
 test('conecta dois jogadores por um link de convite', async ({ browser }) => {
   test.setTimeout(45_000);
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
+  const viewport = { width: 900, height: 700 };
+  const hostContext = await browser.newContext({ viewport });
+  const guestContext = await browser.newContext({ viewport });
   const host = await hostContext.newPage();
   const guest = await guestContext.newPage();
 
@@ -18,6 +19,8 @@ test('conecta dois jogadores por um link de convite', async ({ browser }) => {
       timeout: 20_000,
     });
     await expect(guest.getByTestId('multiplayer-status')).toContainText('Conectado');
+    await host.getByTestId('restart-button').scrollIntoViewIfNeeded();
+    await expect(host.getByTestId('restart-button')).toBeInViewport();
 
     await host.getByTestId('start-button').click();
     await expect(host.getByTestId('game-shell')).toHaveAttribute('data-game-status', 'running');
@@ -30,6 +33,7 @@ test('conecta dois jogadores por um link de convite', async ({ browser }) => {
     expect(localArena).not.toBeNull();
     expect(opponentArena).not.toBeNull();
     expect(opponentArena!.x).toBeGreaterThanOrEqual(localArena!.x + localArena!.width);
+    expect(opponentArena!.x + opponentArena!.width).toBeLessThanOrEqual(viewport.width);
 
     const hostRoundId = await host.getByTestId('game-shell').getAttribute('data-round-id');
     await expect(guest.getByTestId('game-shell')).toHaveAttribute('data-round-id', hostRoundId ?? '');
