@@ -1,36 +1,76 @@
 # Arena 60
 
-Jogo de arena 2D feito com TypeScript, Phaser e Vite. No modo multiplayer, um jogador cria uma sala e envia o link de convite; os dois jogam simultaneamente por 60 segundos e vence quem coletar mais moedas.
+Jogo de arena 2D para navegador, desenvolvido com TypeScript, Phaser e Vite. O projeto combina partidas curtas com testes de regras, cenários BDD e testes de interface.
 
-## Multiplayer
+## Modos de jogo
 
-1. Abra o menu e clique em **Criar sala**.
-2. Clique em **Copiar convite** e envie o link ao segundo jogador.
-3. Quando aparecer **Adversário conectado**, o anfitrião clica em **Iniciar duelo**.
-4. Cada jogador controla seu personagem com as setas. O placar do adversário aparece no HUD.
+- **Solo:** sobreviver durante 60 segundos, desviando dos inimigos e coletando moedas.
+- **Multiplayer:** dois jogadores participam simultaneamente de um duelo de 60 segundos; vence quem coletar mais moedas.
 
-A conexão usa WebRTC por meio do PeerJS. O serviço público do PeerJS faz a apresentação inicial entre os navegadores; os estados da partida seguem diretamente entre os jogadores. Algumas redes corporativas ou VPNs podem bloquear conexões WebRTC.
+## Tecnologias
 
-Jogo de arena 2D para navegador criado com TypeScript, Phaser e Vite. O objetivo é sobreviver por 60 segundos, desviando dos inimigos e coletando moedas.
+| Área                    | Ferramentas                   |
+| ----------------------- | ----------------------------- |
+| Jogo                    | TypeScript e Phaser           |
+| Desenvolvimento e build | Vite                          |
+| Comunicação multiplayer | PeerJS e WebRTC               |
+| Testes de regras        | Vitest                        |
+| Cenários BDD            | Cucumber                      |
+| Testes de interface     | Playwright                    |
+| Integração e publicação | GitHub Actions e GitHub Pages |
 
 ## Executar localmente
 
+Use Node.js e npm. O workflow do repositório utiliza Node.js 24.
+
 ```bash
-npm install
+git clone https://github.com/diogoposs/arena-60.git
+cd arena-60
+npm ci
 npm run dev
 ```
 
+Abra o endereço informado pelo Vite no terminal.
+
+## Multiplayer
+
+1. No menu, selecione **Criar sala**.
+2. Use **Copiar convite** e envie o link ao segundo jogador.
+3. Aguarde **Adversário conectado**.
+4. O anfitrião seleciona **Iniciar duelo**.
+
+Os dois jogadores usam as setas para mover seus personagens. O placar do adversário aparece durante a partida.
+
+O serviço público do PeerJS faz a sinalização inicial; a conexão da partida utiliza WebRTC. Redes corporativas, VPNs e restrições de rede podem impedir a conexão.
+
 ## Testes
 
+Instale o navegador antes dos testes de interface:
+
 ```bash
-npm run test
-npm run test:bdd
-npm run test:e2e
-npm run test:all
+npx playwright install chromium
 ```
 
-## Build
+| Comando                   | Finalidade                                                  |
+| ------------------------- | ----------------------------------------------------------- |
+| `npm test`                | Testes de regras com Vitest                                 |
+| `npm run test:bdd`        | Cenários Cucumber                                           |
+| `npm run test:bdd:report` | Cenários e relatório HTML em `reports/cucumber-report.html` |
+| `npm run test:e2e`        | Testes no navegador                                         |
+| `npm run test:e2e:report` | Abrir o relatório do Playwright                             |
+| `npm run test:all`        | Executar as três suítes                                     |
+
+Os arquivos estão em [tests](tests), com regras em testes unitários, especificações Gherkin em [tests/features](tests/features) e jornadas de navegador em [tests/e2e](tests/e2e).
+
+## Build e publicação
 
 ```bash
 npm run build
+npm run preview
 ```
+
+O build é gerado em `dist/`. O [workflow de publicação](.github/workflows/deploy-pages.yml) instala dependências, executa as suítes, compila o jogo e solicita a publicação no GitHub Pages.
+
+## Escopo
+
+Protótipo pessoal com foco em partidas curtas, regras testáveis e experimentação de multiplayer no navegador. A existência do workflow não comprova o resultado da execução mais recente; consulte a aba [Actions](https://github.com/diogoposs/arena-60/actions) para verificar os checks.
